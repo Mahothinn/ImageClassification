@@ -6,6 +6,7 @@ NA_Fish_DatasetをEfficientNetで画像分類する訓練スクリプト
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import random
 import ssl
@@ -47,7 +48,14 @@ def get_data_loaders(
     val_ratio: float = 0.15,
     num_workers: int = 4,
     image_size: int = 224,
-) -> tuple[DataLoader, DataLoader, DataLoader, int, list[str]]:
+) -> tuple[
+    DataLoader,
+    DataLoader,
+    DataLoader,
+    int,
+    list[str],
+    dict[str, list[int]],
+]:
     """
     データセットを読み込み、train/val/testに分割してDataLoaderを作成する。
 
@@ -123,9 +131,11 @@ def get_data_loaders(
     val_indices = []
     test_indices = []
 
+    # 乱数シードを固定（再現性確保）
+    random.seed(42)
+
     for class_idx, indices in class_indices.items():
         # 各クラスのデータをシャッフル
-        random.seed(42)
         shuffled_indices = indices.copy()
         random.shuffle(shuffled_indices)
 
@@ -140,7 +150,6 @@ def get_data_loaders(
         test_indices.extend(shuffled_indices[class_train_size + class_val_size:])
 
     # インデックスをシャッフル（クラス間の順序をランダム化）
-    random.seed(42)
     random.shuffle(train_indices)
     random.shuffle(val_indices)
     random.shuffle(test_indices)
@@ -198,7 +207,20 @@ def get_data_loaders(
     print(f"検証データ: {len(val_dataset)}枚")
     print(f"テストデータ: {len(test_dataset)}枚")
 
-    return train_loader, val_loader, test_loader, num_classes, class_names
+    split_indices = {
+        "train": train_indices,
+        "val": val_indices,
+        "test": test_indices,
+    }
+
+    return (
+        train_loader,
+        val_loader,
+        test_loader,
+        num_classes,
+        class_names,
+        split_indices,
+    )
 
 
 def create_model(
@@ -433,12 +455,26 @@ def main() -> None:
 
     # データローダー作成
     print("\nデータローダーを作成中...")
-    train_loader, val_loader, test_loader, num_classes, class_names = get_data_loaders(
+    (
+        train_loader,
+        val_loader,
+        test_loader,
+        num_classes,
+        class_names,
+        split_indices,
+    ) = get_data_loaders(
         data_dir=args.data_dir,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         image_size=args.image_size,
     )
+
+    # 分割情報を保存
+    splits_path = args.output_dir / "splits.json"
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    with splits_path.open("w", encoding="utf-8") as f:
+        json.dump(split_indices, f)
+    print(f"データ分割情報を保存しました: {splits_path}")
 
     # モデル作成
     print("\nモデルを作成中...")
