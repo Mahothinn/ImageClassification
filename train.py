@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-NA_Fish_DatasetをEfficientNetで画像分類する訓練スクリプト
+Fish_Dataset_をEfficientNetで画像分類する訓練スクリプト
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ def get_data_loaders(
     Parameters
     ----------
     data_dir : Path
-        データセットのルートディレクトリ（NA_Fish_Datasetを含む）
+        データセットのルートディレクトリ（Fish_Dataset_を含む）
     batch_size : int
         バッチサイズ
     train_ratio : float
@@ -79,7 +79,7 @@ def get_data_loaders(
     tuple[DataLoader, DataLoader, DataLoader, int, list[str]]
         (train_loader, val_loader, test_loader, num_classes, class_names)
     """
-    dataset_dir = data_dir / "NA_Fish_Dataset"
+    dataset_dir = data_dir / "Fish_Dataset_"
     if not dataset_dir.exists():
         raise FileNotFoundError(f"データセットが見つかりません: {dataset_dir}")
 
@@ -392,7 +392,7 @@ def validate(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="NA_Fish_DatasetをEfficientNetで画像分類する"
+        description="Fish_Dataset_をEfficientNetで画像分類する"
     )
     parser.add_argument(
         "--data-dir",

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-保存されたモデルを使用してテストデータで推論を実行するスクリプト
+保存されたモデルを使用してNA_Fish_Datasetの全データで推論を実行するスクリプト
 """
 
 from __future__ import annotations
@@ -8,11 +8,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import json
-
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.models import efficientnet_b0
 from tqdm import tqdm
@@ -69,6 +67,7 @@ def get_test_loader(
 ) -> DataLoader:
     """
     テストデータのDataLoaderを作成する。
+    NA_Fish_Datasetの全データを使用する。
 
     Parameters
     ----------
@@ -82,13 +81,18 @@ def get_test_loader(
         DataLoaderのワーカー数
     image_size : int
         画像サイズ
+    splits_path : Path | None
+        使用しない（互換性のため残している）
 
     Returns
     -------
     DataLoader
-        テストデータのDataLoader
+        テストデータのDataLoader（全データを使用）
     """
     dataset_dir = data_dir / "NA_Fish_Dataset"
+    
+    if not dataset_dir.exists():
+        raise FileNotFoundError(f"データセットが見つかりません: {dataset_dir}")
     
     # テスト用のtransform
     test_transform = transforms.Compose([
@@ -97,28 +101,13 @@ def get_test_loader(
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
     
-    # データセットを読み込み
+    # データセットを読み込み（全データを使用）
     full_dataset = datasets.ImageFolder(
         root=str(dataset_dir),
         transform=test_transform,
     )
-    test_dataset: torch.utils.data.Dataset
-    subset_info = None
-
-    if splits_path and splits_path.exists():
-        with splits_path.open("r", encoding="utf-8") as f:
-            subset_info = json.load(f)
-        test_indices = subset_info.get("test")
-        if test_indices is None:
-            print("警告: splits.json に test インデックスが含まれていません。全データを使用します。")
-            test_dataset = full_dataset
-        else:
-            print(f"保存されたテスト分割（{len(test_indices)}枚）を使用します。")
-            test_dataset = Subset(full_dataset, test_indices)
-    else:
-        if splits_path:
-            print(f"警告: {splits_path} が見つかりません。全データを使用します。")
-        test_dataset = full_dataset
+    
+    print(f"NA_Fish_Datasetの全データを使用します: {len(full_dataset)}枚")
     
     # クラス名の順序を確認
     dataset_class_names = full_dataset.classes
@@ -128,7 +117,7 @@ def get_test_loader(
         print(f"  データセット: {dataset_class_names}")
     
     test_loader = DataLoader(
-        test_dataset,
+        full_dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
@@ -278,8 +267,8 @@ def main() -> None:
     parser.add_argument(
         "--splits-path",
         type=Path,
-        default=Path("./outputs/splits.json"),
-        help="訓練時に保存したデータ分割情報（デフォルト: ./outputs/splits.json）",
+        default=None,
+        help="使用しない（互換性のため残している）",
     )
 
     args = parser.parse_args()
@@ -294,8 +283,8 @@ def main() -> None:
     print(f"クラス数: {num_classes}")
     print(f"クラス名: {class_names}")
 
-    # テストデータのDataLoaderを作成
-    print("\nテストデータを読み込み中...")
+    # テストデータのDataLoaderを作成（全データを使用）
+    print("\nNA_Fish_Datasetの全データを読み込み中...")
     test_loader = get_test_loader(
         data_dir=args.data_dir,
         class_names=class_names,
@@ -304,7 +293,7 @@ def main() -> None:
         image_size=args.image_size,
         splits_path=args.splits_path,
     )
-    print(f"テストデータ: {len(test_loader.dataset)}枚")
+    print(f"推論対象データ: {len(test_loader.dataset)}枚")
 
     # 推論を実行
     print("\n推論を実行中...")
